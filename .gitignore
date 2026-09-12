@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Raw data directory (large, machine-specific, backed up separately)
+data/
+
+# Intel VTune result directories.
+# These run to hundreds of megabytes each. The exported CSVs are what matter and
+# they ARE committed -- they are the dataset. The raw result dirs are reproducible
+# byproducts and stay local (OneDrive is the off-machine backup for them).
+r0*/
+*.vtune
+*.amplxe
+
+# Intel SoC Watch raw captures
+*.sww1
+*.pwr
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store

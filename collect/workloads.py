@@ -30,7 +30,10 @@ Usage:
 """
 
 import argparse
+import json
+import os
 import random
+import sys
 import time
 
 # Working set size for memory-bound workloads.
@@ -183,20 +186,181 @@ def io_bound(duration_sec: float = DEFAULT_DURATION) -> int:
     return work_units
 
 
-# Registry of available workloads
+# -----------------------------------------------------------------------------
+# Workload registry
+# -----------------------------------------------------------------------------
+# Every workload — whether an in-process Python function or an external Windows
+# executable — is described by the SAME dict shape below, so runner.py can
+# handle them uniformly.
+#
+# Required keys per spec:
+#   kind:                   'python' | 'external'
+#   thread_counts:          list[int] of thread counts to sweep for this workload
+#   expected_duration_sec:  rough runtime, used to size the SoC Watch window
+#
+# For kind == 'python':
+#   func:                   callable(duration_sec) -> result (in-process)
+#
+# For kind == 'external':
+#   exe:                    path (relative to collect/) to the .exe, or None
+#                           if the args_builder returns a full argv starting
+#                           with the interpreter (SQLite wrapper case).
+#   args_builder:           callable(thread_count, duration_sec) -> list[str]
+#                           of arguments (NOT including the exe itself).
+#   input_files:            list of relative paths that must exist before the
+#                           run starts (runner fails fast if missing).
+#
+# The Python micros keep thread_counts=[1] because they are single-threaded
+# by design — they are the calibration control.
+# -----------------------------------------------------------------------------
+
+# -- Tunables set by collect/probe_env.py ------------------------------------
+# These exist as named constants rather than literals inside the registry
+# because each one is the answer to a specific probe, and getting one wrong
+# costs a whole campaign.
+
+# Probe 0.4. sample.y4m is 640x360 / 720 frames, so at --preset medium x264
+# finishes in 1.5-3.5s and contributed 29 of v3's 2760 windows. A slower preset
+# buys span without a new module or a pipe. The span still varies ~8x across
+# thread counts, which the self-terminating exporter handles.
+X264_PRESET = "veryslow"
+
+# Probe 0.2. False encodes the file once at X264_PRESET. True switches to the
+# duration-driven stdin feeder in workloads_x264.py.
+#
+# **Probe 0.2 PASSED 2026-10-01:** VTune attributes grandchild processes (both
+# python.exe and 7z.exe appeared in the report). The feeder is now enabled.
+X264_USE_FEEDER = True
+
+# Probe 0.3. zstd's -i is a MINIMUM per-level evaluation time and -b3 runs
+# both compression and decompression, so -i30 can mean a ~60s+ span. Cap the
+# per-level time so the total lands near the 30s target.
+ZSTD_ITER_CAP_SEC = 15
+
+
+def _x264_args(thread_count: int, duration_sec: float) -> list:
+    """Build x264's argv, either the single-encode or the feeder form."""
+    if X264_USE_FEEDER:
+        # Full argv starting with the interpreter, like the sqlite wrapper.
+        return [
+            sys.executable,
+            "workloads_x264.py",
+            "--threads", str(thread_count),
+            "--duration", str(max(5, int(duration_sec))),
+            "--preset", X264_PRESET,
+            "--input", "workloads_data/sample.y4m",
+            "--x264", "workloads_bin/x264.exe",
+        ]
+    return [
+        "--threads", str(thread_count),
+        "--preset", X264_PRESET,
+        "-o", "NUL",
+        "workloads_data/sample.y4m",
+    ]
+
+
 WORKLOADS = {
-    'compute': compute_bound,
-    'memory': memory_bound,
-    'mixed': mixed_phases,
-    'io': io_bound,
+    # -- Python micro-benchmarks (calibration controls) -----------------------
+    "compute": {
+        "kind": "python",
+        "func": compute_bound,
+        "thread_counts": [1],
+        "expected_duration_sec": DEFAULT_DURATION,
+    },
+    "memory": {
+        "kind": "python",
+        "func": memory_bound,
+        "thread_counts": [1],
+        "expected_duration_sec": DEFAULT_DURATION,
+    },
+    "mixed": {
+        "kind": "python",
+        "func": mixed_phases,
+        "thread_counts": [1],
+        "expected_duration_sec": DEFAULT_DURATION,
+    },
+    "io": {
+        "kind": "python",
+        "func": io_bound,
+        "thread_counts": [1],
+        "expected_duration_sec": DEFAULT_DURATION,
+    },
+
+    # -- Real applications ----------------------------------------------------
+    # 7-Zip's built-in benchmark. `-mmt<N>` sets thread count. It runs a fixed
+    # amount of work per iteration and prints a summary at the end; wall time
+    # is roughly 30 s for the default work size.
+    "7zip": {
+        "kind": "external",
+        "exe": "workloads_bin/7z.exe",
+        "args_builder": lambda t, d: ["b", "-mmt" + str(t)],
+        "thread_counts": [1, 4, 8, 16],
+        "expected_duration_sec": 30.0,
+        "input_files": [],
+    },
+
+    # zstd benchmark mode: -T<N> threads, -b3 uses compression level 3
+    # (default), -i<sec> sets a per-level iteration time. The corpus is the
+    # standard Silesia dataset.
+    "zstd": {
+        "kind": "external",
+        "exe": "workloads_bin/zstd.exe",
+        "args_builder": lambda t, d: [
+            "-T" + str(t),
+            "-b3",
+            "-i" + str(max(3, min(int(d), ZSTD_ITER_CAP_SEC))),
+            "workloads_data/silesia.tar",
+        ],
+        "thread_counts": [1, 4, 8, 16],
+        "expected_duration_sec": 30.0,
+        "input_files": ["workloads_data/silesia.tar"],
+    },
+
+    # x264 encoding. `--threads <N>` sets thread count; the preset and whether
+    # a stdin feeder is used are decided by probes 0.4 and 0.2 -- see
+    # X264_PRESET / X264_USE_FEEDER above. Output goes to NUL so there is no
+    # disk contention. x264.exe is listed in input_files as well as exe so it
+    # is still checked in the feeder form, where exe is None.
+    "x264": {
+        "kind": "external",
+        "exe": None if X264_USE_FEEDER else "workloads_bin/x264.exe",
+        "args_builder": _x264_args,
+        "thread_counts": [1, 4, 8, 16],
+        "expected_duration_sec": 30.0,
+        "input_files": ["workloads_data/sample.y4m", "workloads_bin/x264.exe"],
+    },
+
+    # SQLite is driven by a small Python wrapper (workloads_sqlite.py) that
+    # opens the pre-built DB, launches N worker threads, and each thread runs
+    # mixed SELECT/UPDATE queries from a fixed pool until --duration elapses.
+    # sqlite3.exe alone has no built-in benchmark and doesn't thread queries.
+    "sqlite": {
+        "kind": "external",
+        "exe": None,  # argv builder emits a full command starting with python
+        "args_builder": lambda t, d: [
+            sys.executable,
+            "workloads_sqlite.py",
+            "--threads", str(t),
+            "--duration", str(max(5, int(d))),
+            "--db", "workloads_data/test.sqlite",
+        ],
+        "thread_counts": [1, 4, 8, 16],
+        # Honours --duration directly, so this tracks the campaign's 30s.
+        "expected_duration_sec": 30.0,
+        "input_files": ["workloads_data/test.sqlite"],
+    },
 }
 
 
 def run_workload(name: str, duration_sec: float = DEFAULT_DURATION) -> tuple:
-    """Run a named workload and return (name, duration, result).
+    """Run a Python micro-benchmark and return (name, duration, result).
+
+    This is the in-process entry point used by ``python workloads.py <name>`` —
+    only supports ``kind == 'python'`` workloads. External workloads are
+    launched by ``runner.py`` directly and never come through this path.
 
     Args:
-        name: Key from WORKLOADS dict
+        name: Key from WORKLOADS dict (must be a python-kind workload)
         duration_sec: How long to run
 
     Returns:
@@ -204,11 +368,19 @@ def run_workload(name: str, duration_sec: float = DEFAULT_DURATION) -> tuple:
 
     Raises:
         KeyError: If workload name not found
+        ValueError: If workload is not a python-kind workload
     """
     if name not in WORKLOADS:
         raise KeyError(f"Unknown workload: {name}. Available: {list(WORKLOADS.keys())}")
 
-    fn = WORKLOADS[name]
+    spec = WORKLOADS[name]
+    if spec["kind"] != "python":
+        raise ValueError(
+            f"Workload '{name}' is kind={spec['kind']!r}; only python-kind "
+            "workloads can run in-process. Launch it via runner.py instead."
+        )
+
+    fn = spec["func"]
     start = time.perf_counter()
     result = fn(duration_sec)
     elapsed = time.perf_counter() - start
@@ -216,15 +388,45 @@ def run_workload(name: str, duration_sec: float = DEFAULT_DURATION) -> tuple:
     return (name, elapsed, result)
 
 
+def python_workload_names() -> list:
+    """Return the names of the python-kind workloads (for the CLI choices)."""
+    return [name for name, spec in WORKLOADS.items() if spec["kind"] == "python"]
+
+
+# Workloads whose setup cost lands inside the profiled window unless it is
+# forced to happen first. _get_chase() builds and shuffles a 4-million-element
+# list -- seconds of allocation and random access that look nothing like the
+# workload itself -- and it is called lazily from inside memory_bound and
+# mixed_phases. In a 5-second run that was most of the run.
+NEEDS_CHASE = ("memory", "mixed")
+
+
+def prewarm(name: str) -> float:
+    """Do a workload's setup up front and return how long it took.
+
+    The setup still happens inside VTune's collection window -- VTune launches
+    the process, so there is nowhere earlier to put it. The point is that its
+    cost becomes a MEASURED offset the consumer can drop, instead of an
+    unknown amount of allocation noise smeared across the first few bins.
+    """
+    start = time.perf_counter()
+    if name in NEEDS_CHASE:
+        _get_chase()
+    return time.perf_counter() - start
+
+
 def main():
     """CLI entry point for running workloads."""
     parser = argparse.ArgumentParser(
         description="Run micro-benchmarks for data collection."
     )
+    # This CLI only runs the in-process Python micros. External workloads
+    # (7zip, zstd, x264, sqlite) are launched by runner.py directly and would
+    # blow up here — the choices list excludes them.
     parser.add_argument(
         "workload",
-        choices=list(WORKLOADS.keys()),
-        help="Which workload to run"
+        choices=python_workload_names(),
+        help="Which python-kind workload to run"
     )
     parser.add_argument(
         "--duration", "-d",
@@ -237,13 +439,49 @@ def main():
         action="store_true",
         help="Suppress output (for subprocess invocation)"
     )
+    parser.add_argument(
+        "--phase-file",
+        type=str,
+        default=None,
+        help="Write a JSON file recording when setup finished and when the "
+             "workload proper started and ended, as offsets from process "
+             "start. analysis/windows.py drops the leading timeline bins that "
+             "fall inside setup, which for 'memory' and 'mixed' is the "
+             "multi-second build of the 4M-element pointer-chase array."
+    )
 
     args = parser.parse_args()
 
+    t0 = time.perf_counter()
+    started_unix = time.time()
+    setup_sec = prewarm(args.workload)
+    workload_start = time.perf_counter() - t0
+
     name, elapsed, result = run_workload(args.workload, args.duration)
+    workload_end = time.perf_counter() - t0
+
+    if args.phase_file:
+        phases = {
+            "workload": name,
+            "pid": os.getpid(),
+            "process_start_unix": started_unix,
+            "setup_sec": round(setup_sec, 4),
+            # Offsets are from PROCESS start, not from VTune's collection
+            # start; VTune launches the process, so its own startup sits
+            # before offset 0. Treat these as a lower bound on how many
+            # leading bins to drop.
+            "setup_done_offset_sec": round(workload_start, 4),
+            "workload_start_offset_sec": round(workload_start, 4),
+            "workload_end_offset_sec": round(workload_end, 4),
+            "duration_requested_sec": args.duration,
+            "duration_actual_sec": round(elapsed, 4),
+        }
+        with open(args.phase_file, "w", encoding="utf-8") as f:
+            json.dump(phases, f, indent=2)
 
     if not args.quiet:
         print(f"Workload: {name}")
+        print(f"Setup:    {setup_sec:.3f}s")
         print(f"Duration: {elapsed:.3f}s (requested {args.duration}s)")
         print(f"Result: {result}")
 

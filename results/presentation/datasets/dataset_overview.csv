@@ -1,0 +1,4 @@
+dataset,description,dates,runs,ok,failed,workloads,configs,thread_counts,reps_per_config,workload_span_sec,run_wall_min_total,ipc_range,vtune_counters,timeline_bins_total,avg_power_w_mean,energy_j_mean,energy_truncated_runs
+stage1_v4,All 8 workloads (its 7-Zip runs failed: 32-bit exe),2026-10-01 to 2026-10-02,180,141,39,"7zip, zstd, x264, sqlite, compute, memory, mixed, io",29,"1, 4, 8, 16",4-5,18.5-33.5,603.3,0.74-7.16,218,8874,25.12,2388.9,0
+stage1_v4_7zip,7-Zip re-collected with the 64-bit exe,2026-10-02 to 2026-10-03,35,34,1,7zip,7,"1, 4, 8, 16",4-5,11.5-23.5,100.4,1.40-1.99,218,1133,27.8,2643.1,0
+**final dataset**,"OK runs of both, 7-Zip from the retry",,175,175,0,,,,,,,,,10007,,,

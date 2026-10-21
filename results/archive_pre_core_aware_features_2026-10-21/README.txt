@@ -1,0 +1,1 @@
+Snapshot taken 2026-10-21, before Model A features were made core-type-aware (P-core top-down from TOPDOWN.SLOTS-family counters; L1/L3 miss rates replaced by memory-stall fractions). These phases split by core type because of a counter artefact; see PROJECT_CONTEXT.md. Kept for comparison only.

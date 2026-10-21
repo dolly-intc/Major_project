@@ -1,0 +1,81 @@
+{
+  "n_anchors": 20860,
+  "threads_kept": 485,
+  "threads_total": 1188,
+  "n_runs": 150,
+  "anchors_per_workload": {
+    "x264": 15128,
+    "sqlite": 1869,
+    "zstd": 1724,
+    "mixed": 496,
+    "memory": 495,
+    "compute": 460,
+    "io": 460,
+    "7zip": 228
+  },
+  "raw_transition_rate": 0.11375838926174496,
+  "hyst_transition_rate": 0.08111217641418984,
+  "raw_transitions_that_are_flicker": 0.4854614412136536,
+  "top_raw_transition_pairs": [
+    {
+      "from": 3,
+      "to": 1,
+      "count": 609,
+      "share_of_transitions": 0.25663716814159293
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "count": 515,
+      "share_of_transitions": 0.21702486304256216
+    },
+    {
+      "from": 3,
+      "to": 6,
+      "count": 204,
+      "share_of_transitions": 0.08596713021491782
+    },
+    {
+      "from": 6,
+      "to": 3,
+      "count": 182,
+      "share_of_transitions": 0.07669616519174041
+    },
+    {
+      "from": 1,
+      "to": 7,
+      "count": 172,
+      "share_of_transitions": 0.07248209018120523
+    },
+    {
+      "from": 7,
+      "to": 1,
+      "count": 148,
+      "share_of_transitions": 0.06236831015592077
+    },
+    {
+      "from": 0,
+      "to": 3,
+      "count": 109,
+      "share_of_transitions": 0.04593341761483354
+    },
+    {
+      "from": 3,
+      "to": 0,
+      "count": 86,
+      "share_of_transitions": 0.036241045090602615
+    },
+    {
+      "from": 7,
+      "to": 5,
+      "count": 47,
+      "share_of_transitions": 0.01980615254951538
+    },
+    {
+      "from": 6,
+      "to": 0,
+      "count": 45,
+      "share_of_transitions": 0.018963337547408345
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:132: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["run_id"] = run_id
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:133: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["workload"] = meta.get("workload", workload)
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:134: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["core_type"] = meta.get("core_type")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:135: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["thread_count"] = meta.get("thread_count")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:136: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["rep"] = meta.get("rep")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:137: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["source_folder"] = folder.name
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\windows.py:123: RuntimeWarning: Mean of empty slice
+  col_means = np.nanmean(feat_values, axis=0)
+Loading timeline data...
+Loaded 175 runs (49686 rows)
+Skipped 6 runs (failed or missing data)
+Workloads: ['7zip', 'compute', 'io', 'memory', 'mixed', 'sqlite', 'x264', 'zstd']
+Using 8 features: ['ipc', 'retiring', 'fe_bound', 'be_bound', 'bad_spec', 'l1_miss_rate', 'l3_miss_rate', 'branch_mispredict_rate']
+Created 28601 windows from 3579 thread-runs
+Skipped: 2077 too short, 314 non-consecutive
+Window shape: (28601, 32) (4 bins × 8 features)
+Computing embeddings...
+Seed 42 test: overall_acc 0.943, same_acc 0.959, trans_recall 0.687, trans_precision 0.506, trans_f1 0.583, change_recall 0.695, n_test 2245.000, n_trans 131.000
+Pure-Python forward pass agrees with PyTorch on 100.0% of 500 test anchors
+Saved to C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\models\phase_lookahead_v2

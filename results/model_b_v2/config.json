@@ -1,0 +1,23 @@
+{
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "epochs": 100,
+  "horizon": 2,
+  "history": 6,
+  "anchor_history": 8,
+  "lstm_histories": [
+    4,
+    6,
+    8
+  ],
+  "min_duration": 3,
+  "trans_weight": 4.0,
+  "test_frac": 0.15,
+  "val_frac": 0.15,
+  "split": "GroupShuffleSplit by run_id"
+}

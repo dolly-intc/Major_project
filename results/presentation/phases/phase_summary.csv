@@ -1,0 +1,5 @@
+phase,name,windows,share,runs,thread_runs,workloads_present,top_workloads,p_core_share,ipc,retiring,fe_bound,be_bound,bad_spec,mem_stall_frac,dram_stall_frac,branch_mispredict_rate,windows_p,windows_e,dwell_median_sec,dwell_mean_sec,stay_prob_next_window,most_likely_next_phases
+1,Main Compute,16018,0.67,134,444,6,"x264 70%, sqlite 17%, zstd 6%",0.279,2.914,0.437,0.101,0.4,0.062,0.099,0.042,0.01,4466,11552,1.5,5.14,0.922,"P3 (88% of exits), P2 (11% of exits)"
+3,Bad Speculation,4903,0.205,115,682,5,"x264 44%, 7zip 28%, zstd 20%",0.234,2.407,0.343,0.113,0.371,0.172,0.183,0.093,0.034,1145,3758,1.0,1.45,0.724,"P1 (88% of exits), P0 (8% of exits)"
+2,Frontend-Bound,2091,0.088,38,80,3,"x264 87%, io 8%, sqlite 5%",0.56,2.498,0.227,0.488,0.228,0.057,0.149,0.082,0.007,1171,920,1.5,5.12,0.92,"P1 (71% of exits), P3 (27% of exits)"
+0,Memory-Bound,885,0.037,55,105,5,"memory 41%, 7zip 32%, zstd 16%",0.408,1.301,0.142,0.053,0.717,0.089,0.644,0.574,0.021,361,524,1.0,2.32,0.838,"P3 (83% of exits), P1 (15% of exits)"

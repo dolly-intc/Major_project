@@ -1,0 +1,67 @@
+=== Loading Data ===
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:132: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["run_id"] = run_id
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:133: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["workload"] = meta.get("workload", workload)
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:134: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["core_type"] = meta.get("core_type")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:135: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["thread_count"] = meta.get("thread_count")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:136: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["rep"] = meta.get("rep")
+C:\Users\dollycha\OneDrive - Intel Corporation\Desktop\research\analysis\load_dataset.py:137: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df["source_folder"] = folder.name
+Loaded 175 runs (49686 rows)
+Skipped 6 runs (failed or missing data)
+Workloads: ['7zip', 'compute', 'io', 'memory', 'mixed', 'sqlite', 'x264', 'zstd']
+
+=== Extracting Features ===
+Carry-forward: 25,059 of 49,686 bins had an unmeasured feature; 8,722 leading bins dropped
+
+=== Creating Windows ===
+Using 8 features: ['ipc', 'retiring', 'fe_bound', 'be_bound', 'bad_spec', 'mem_stall_frac', 'dram_stall_frac', 'branch_mispredict_rate']
+Created 23897 windows from 2242 thread-runs
+Skipped: 1100 too short, 234 non-consecutive
+Window shape: (23897, 32) (4 bins × 8 features)
+
+=== Training Autoencoder ===
+Epoch 10/50: train_loss=0.1467, val_loss=0.1450
+Epoch 20/50: train_loss=0.1343, val_loss=0.1298
+Epoch 30/50: train_loss=0.1100, val_loss=0.1082
+Epoch 40/50: train_loss=0.1031, val_loss=0.1032
+Epoch 50/50: train_loss=0.1000, val_loss=0.1000
+
+=== Getting Embeddings ===
+Embedding shape: (23897, 8)
+
+=== Clustering ===
+k=4: silhouette=0.3185
+k=5: silhouette=0.1905
+k=6: silhouette=0.2146
+k=7: silhouette=0.2157
+k=8: silhouette=0.2152
+k=9: silhouette=0.2304
+k=10: silhouette=0.2053
+k=11: silhouette=0.2067
+k=12: silhouette=0.2166
+
+Best k=4 with silhouette=0.3185
+
+=== Cluster Analysis ===
+   cluster  n_windows  mean_ipc  mean_retiring  mean_fe_bound  mean_be_bound  mean_bad_spec  mean_mem_stall_frac  mean_dram_stall_frac  mean_branch_mispredict_rate dominant_workload  workload_purity
+0        0        885  1.300731       0.141687       0.052852       0.716886       0.088575             0.643958              0.573966                     0.020974            memory         0.405650
+1        1      16018  2.914085       0.437088       0.101133       0.400019       0.061769             0.099369              0.041705                     0.009691              x264         0.703271
+2        2       2091  2.498382       0.227005       0.488438       0.227977       0.056575             0.148875              0.082183                     0.006863              x264         0.872310
+3        3       4903  2.406992       0.343482       0.113101       0.371411       0.172014             0.183375              0.093288                     0.034305              x264         0.438915
+
+=== Cluster × Workload Cross-tab ===
+workload  7zip  compute   io  memory  mixed  sqlite   x264  zstd    All
+cluster                                                                
+0          284        0    0     359     53      38      6   145    885
+1           26      570   47     181    357    2663  11265   909  16018
+2            0        0  167       0      0     100   1824     0   2091
+3         1360        0   14       5    196     184   2152   992   4903
+All       1670      570  228     545    606    2985  15247  2046  23897
+
+=== Saving Model ===
+Model saved to models\phase_discovery

@@ -1,0 +1,9 @@
+phase,name,windows,share,runs,thread_runs,workloads_present,top_workloads,p_core_share,ipc,retiring,fe_bound,be_bound,bad_spec,l1_miss_rate,l3_miss_rate,branch_mispredict_rate,windows_p,windows_e,dwell_median_sec,dwell_mean_sec,stay_prob_next_window,most_likely_next_phases
+3,Main Compute,11019,0.385,86,482,4,"x264 80%, zstd 9%, sqlite 8%",0.001,2.47,0.412,0.119,0.348,0.099,0.0,0.0,0.012,11,11008,1.0,3.86,0.892,"P1 (62% of exits), P6 (23% of exits)"
+1,Low-Activity Catch-all,9705,0.339,126,464,8,"x264 58%, sqlite 14%, zstd 7%",0.484,2.595,0.091,0.018,0.226,0.007,0.008,0.011,0.004,4700,5005,1.5,4.11,0.909,"P3 (79% of exits), P7 (15% of exits)"
+7,"Light Memory, High IPC",1899,0.066,41,98,4,"x264 68%, zstd 21%, sqlite 6%",0.999,3.064,0.0,0.0,0.0,0.0,0.144,0.252,0.01,1898,1,2.0,4.11,0.897,"P1 (62% of exits), P5 (18% of exits)"
+0,Speculative / Backend-Bound,1807,0.063,41,600,2,"7zip 89%, x264 11%, sqlite 0%",0.003,1.683,0.217,0.116,0.423,0.237,0.0,0.0,0.083,6,1801,1.5,1.28,0.818,"P3 (73% of exits), P6 (23% of exits)"
+6,"Frontend-Bound, Low IPC",1347,0.047,38,119,2,"x264 88%, sqlite 11%, io 1%",0.001,0.668,0.147,0.415,0.276,0.132,0.0,0.0,0.006,1,1346,0.5,1.71,0.726,"P3 (79% of exits), P0 (12% of exits)"
+4,L3-Bound,1222,0.043,39,58,6,"sqlite 50%, memory 20%, mixed 20%",1.0,2.463,0.0,0.0,0.0,0.0,0.027,0.822,0.002,1222,0,2.5,7.19,0.958,"P7 (82% of exits), P2 (10% of exits)"
+5,"L1-Bound, High Throughput",1071,0.037,9,31,3,"x264 93%, memory 6%, zstd 1%",1.0,3.042,0.0,0.0,0.0,0.0,0.958,0.067,0.008,1071,0,2.5,9.08,0.965,"P2 (54% of exits), P7 (38% of exits)"
+2,L1 + L3 Pressure,531,0.019,7,15,3,"x264 93%, zstd 6%, sqlite 1%",1.0,1.229,0.0,0.0,0.0,0.0,0.891,0.692,0.003,531,0,2.0,8.05,0.956,"P5 (74% of exits), P4 (26% of exits)"

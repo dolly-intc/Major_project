@@ -1,0 +1,37 @@
+{
+  "model": "mlp_ctx_weighted",
+  "label_definition": "hyst",
+  "split": "GroupShuffleSplit by run_id",
+  "train_seed": 42,
+  "this_artifact_test_metrics": {
+    "overall_acc": 0.9207350521119034,
+    "same_acc": 0.9386503067484663,
+    "trans_recall": 0.6457399103139013,
+    "trans_precision": 0.40336134453781514,
+    "trans_f1": 0.49655172413793097,
+    "change_recall": 0.6591928251121076,
+    "n_test": 3646.0,
+    "n_trans": 223.0
+  },
+  "five_seed_mean_std": {
+    "overall_acc_mean": 0.946349694742489,
+    "overall_acc_std": 0.0208183090936624,
+    "same_acc_mean": 0.961995056206695,
+    "same_acc_std": 0.0160836181443838,
+    "trans_recall_mean": 0.6850235663620777,
+    "trans_recall_std": 0.0539800380650812,
+    "trans_precision_mean": 0.5152411558876995,
+    "trans_precision_std": 0.0315489986647598,
+    "trans_f1_mean": 0.5874635210750881,
+    "trans_f1_std": 0.0338673613388141,
+    "change_recall_mean": 0.7058311067100197,
+    "change_recall_std": 0.0468817902753164,
+    "n_trans_mean": 144.8,
+    "n_trans_std": 49.322408700305786,
+    "n_params_mean": 3716.0,
+    "n_params_std": 0.0,
+    "train_sec_mean": 2.1375325679779054,
+    "train_sec_std": 0.8057569249429316
+  },
+  "note": "Report the five-seed numbers; the single-seed numbers describe this artifact only."
+}

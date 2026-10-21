@@ -1,0 +1,14 @@
+{
+  "model_type": "lstm",
+  "model_name": "LSTM-6",
+  "seq_len": 6,
+  "hidden_dim": 32,
+  "n_layers": 2,
+  "n_classes": 8,
+  "horizon_bins": 2,
+  "test_accuracy": 0.9080560420315237,
+  "transition_accuracy": 0.42857142857142855,
+  "same_phase_accuracy": 0.9737802854298042,
+  "n_trans": 413,
+  "n_same": 3013
+}

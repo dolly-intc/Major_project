@@ -133,11 +133,26 @@ def collect_background(
 
 
 def parse_csv(csv_path: str) -> dict:
-    """Parse SoC Watch output CSV for package energy.
+    """Parse SoC Watch output CSV for package energy and metadata.
 
-    Expected format (verified 2026-08-31):
+    The parser anchors to the ``Package Power Summary: Average Rate and Total``
+    section header, NOT to the first row containing "Package" and "Power". This
+    is defensive against a future flag combination introducing time-series rows
+    above the summary. (Verified 2026-10-01: with ``-m``, SoC Watch emits
+    **only** the summary section — no time-series block. But the anchor costs
+    nothing and protects the parser.)
+
+    Expected section format (verified 2026-08-31):
+        Package Power Summary: Average Rate and Total
         Component    , Metric Type, Average Rate (mW), Total (mJ)
+        ---------    , -----------, -----------------, ----------
         CPU/Package_0, Power      , 5311.30          , 53611.08
+
+    Also captures metadata from the header block:
+        Collection duration (sec): 7.11148
+        Data Collection Started: 2026-08-31 10:45:54 GMT
+        Total # of samples: 58
+        Avg sampling interval (msec): 123.30
 
     Args:
         csv_path: Path to SoC Watch CSV output file
@@ -147,10 +162,14 @@ def parse_csv(csv_path: str) -> dict:
             avg_power_mw: Average power in milliwatts
             total_energy_mj: Total energy in millijoules
             component: Component name (e.g., "CPU/Package_0")
+            collection_duration_sec: float or None
+            data_collection_started: str or None (timestamp)
+            total_samples: int or None
+            avg_sampling_interval_msec: float or None
 
     Raises:
         FileNotFoundError if csv_path doesn't exist
-        ValueError if CSV format is unexpected
+        ValueError if package power data could not be parsed
     """
     # Try to find the CSV file - SoC Watch adds a suffix
     csv_path = Path(csv_path)
@@ -179,37 +198,102 @@ def parse_csv(csv_path: str) -> dict:
         "total_energy_mj": None,
         "component": None,
         "source_file": str(actual_path),
+        # Metadata from header
+        "collection_duration_sec": None,
+        "data_collection_started": None,
+        "total_samples": None,
+        "avg_sampling_interval_msec": None,
     }
 
     with open(actual_path, "r", encoding="utf-8") as f:
-        # SoC Watch CSV may have header rows before the data
-        reader = csv.reader(f)
+        lines = f.readlines()
 
-        for row in reader:
-            if not row or len(row) < 4:
-                continue
+    # First pass: extract header metadata (key: value lines)
+    for line in lines:
+        line = line.strip()
+        if line.startswith("Collection duration (sec):"):
+            try:
+                result["collection_duration_sec"] = float(line.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        elif line.startswith("Data Collection Started:"):
+            result["data_collection_started"] = line.split(":", 1)[1].strip()
 
-            # Strip whitespace from all cells
-            row = [cell.strip() for cell in row]
+    # Second pass: find the "Package Power Summary: Average Rate and Total"
+    # section and parse the data row within it.
+    in_summary_section = False
+    for line in lines:
+        line_stripped = line.strip()
 
-            # Look for package power row
-            # Format: Component, Metric Type, Average Rate (mW), Total (mJ)
-            if "Package" in row[0] and "Power" in row[1]:
-                result["component"] = row[0]
-                try:
-                    result["avg_power_mw"] = float(row[2])
-                except (ValueError, IndexError):
-                    pass
-                try:
-                    result["total_energy_mj"] = float(row[3])
-                except (ValueError, IndexError):
-                    pass
-                break
+        # Anchor to the specific section header
+        if "Package Power Summary: Average Rate and Total" in line_stripped:
+            in_summary_section = True
+            continue
+
+        # Stop if we hit another section header
+        if in_summary_section and line_stripped.startswith("Package Power Summary:"):
+            # We've hit the next summary section (e.g., "Total Samples Received")
+            break
+
+        if not in_summary_section:
+            continue
+
+        # Parse CSV-style rows within the section
+        row = [cell.strip() for cell in line.split(",")]
+        if len(row) < 4:
+            continue
+
+        # Look for the data row: Component, Metric Type, Average Rate (mW), Total (mJ)
+        # Skip header/separator lines
+        if "Package" in row[0] and "Power" in row[1] and "---" not in row[0]:
+            result["component"] = row[0]
+            try:
+                result["avg_power_mw"] = float(row[2])
+            except ValueError:
+                raise ValueError(
+                    f"Could not parse average power from {row[2]!r} in {actual_path}"
+                )
+            try:
+                result["total_energy_mj"] = float(row[3])
+            except ValueError:
+                raise ValueError(
+                    f"Could not parse total energy from {row[3]!r} in {actual_path}"
+                )
+            break
+
+    # Third pass: find sampling metadata from "Package Power Summary: Total Samples Received"
+    in_samples_section = False
+    for line in lines:
+        line_stripped = line.strip()
+        if "Package Power Summary: Total Samples Received" in line_stripped:
+            in_samples_section = True
+            continue
+        if in_samples_section and line_stripped.startswith("Package Power Summary:"):
+            break
+        if not in_samples_section:
+            continue
+        row = [cell.strip() for cell in line.split(",")]
+        if len(row) >= 5 and "Package" in row[0] and "---" not in row[0]:
+            try:
+                result["total_samples"] = int(row[1])
+            except ValueError:
+                pass
+            try:
+                result["avg_sampling_interval_msec"] = float(row[4])
+            except (ValueError, IndexError):
+                pass
+            break
 
     if result["avg_power_mw"] is None:
         raise ValueError(
             f"Could not find package power data in {actual_path}. "
-            "Expected a row with 'Package' in Component and 'Power' in Metric Type."
+            "Expected a 'Package Power Summary: Average Rate and Total' section "
+            "with a row containing 'Package' in Component and 'Power' in Metric Type."
+        )
+
+    if result["total_energy_mj"] is None:
+        raise ValueError(
+            f"Found average power but could not parse total energy in {actual_path}."
         )
 
     return result
@@ -291,9 +375,10 @@ if __name__ == "__main__":
 
         print(f"Collecting for {duration}s into {output_dir}")
         if workload:
-            print(f"Running workload: {' '.join(workload)}")
+            print(f"NOTE: workload argument is ignored — SoC Watch runs for a "
+                  f"fixed duration. Run your workload separately in parallel.")
 
-        collect(duration, output_dir, workload)
+        collect(duration, output_dir)
         print("Collection complete.")
 
     elif command == "parse":

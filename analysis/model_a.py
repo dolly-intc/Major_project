@@ -79,6 +79,7 @@ def train_autoencoder(
     val_split: float = 0.1,
     verbose: bool = True,
     seed: int = DEFAULT_SEED,
+    history: list = None,
 ) -> Tuple[nn.Module, StandardScaler]:
     """
     Train autoencoder on window data.
@@ -93,6 +94,8 @@ def train_autoencoder(
         val_split: Fraction of data for validation
         verbose: Print training progress
         seed: Random seed for reproducible weight init, split, and shuffling
+        history: If a list, one {"epoch", "train_loss", "val_loss"} dict is appended per epoch
+            (records only; does not change training)
 
     Returns:
         encoder: Trained encoder (callable, returns embeddings)
@@ -147,8 +150,10 @@ def train_autoencoder(
             val_loss = criterion(val_recon, X_val).item()
         model.train()
 
+        train_loss = epoch_loss / n_batches
+        if history is not None:
+            history.append({"epoch": epoch + 1, "train_loss": train_loss, "val_loss": val_loss})
         if verbose and (epoch + 1) % 10 == 0:
-            train_loss = epoch_loss / n_batches
             print(f"Epoch {epoch + 1}/{epochs}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
 
     model.eval()

@@ -1,7 +1,7 @@
 """
 Model B v2: honest evaluation + transition-focused improvements for phase lookahead.
 
-Fixes three evaluation problems in model_b.py / train_lstm_compare.py:
+Fixes three evaluation problems in the original Model B scripts (removed 2026-10-24):
   1. Leakage. Windows were split at random, so neighbouring windows (which share
      3 of their 4 bins) landed on both sides of the split. Here train/val/test
      are split by run_id, so no run contributes windows to more than one side.
@@ -16,7 +16,7 @@ MLP / LSTM-6 setup, added context features, transition-weighted loss, a two-head
 change/destination model with a validation-tuned threshold, and a GBDT.
 
 Two label definitions are reported side by side:
-  raw   - nearest-centroid phase, exactly as in model_b.py. Reference ("current")
+  raw   - nearest-centroid phase, exactly as in the original Model B. Reference ("current")
           phase = the anchor window's phase.
   hyst  - phase changes shorter than MIN_DURATION windows are noise. Target =
           smoothed phase (short runs merged into the preceding run). Reference =
@@ -26,7 +26,7 @@ Two label definitions are reported side by side:
 
 Transition metrics (a "transition" is target != reference):
   trans_recall    - fraction of true transitions predicted exactly right
-                    (this is the "transition accuracy" model_b.py reports)
+                    (the "transition accuracy" the original Model B reported)
   trans_precision - of the predictions that say "phase changes", fraction right
   trans_f1        - harmonic mean of the two
   change_recall   - fraction of true transitions where the model predicted *a*
@@ -67,7 +67,7 @@ from analysis.seeding import set_seed
 
 
 # Task
-HORIZON = 2          # windows ahead = 1 s (same as model_b.py)
+HORIZON = 2          # windows ahead = 1 s (same as the original Model B)
 HISTORY = 6          # run-length feature cap (windows); also the v1-best LSTM history
 LSTM_HISTORIES = [4, 6, 8]
 ANCHOR_HISTORY = max(LSTM_HISTORIES)  # every model is scored on anchors with this much past
@@ -95,7 +95,7 @@ EXPERIMENTS = [
     ("persistence",        {"kind": "baseline"}),
     ("markov1",            {"kind": "baseline"}),
     ("markov2",            {"kind": "baseline"}),
-    ("mlp_emb_ce",         {"kind": "mlp",  "feats": "emb", "mode": "ce"}),        # = model_b.py MLP
+    ("mlp_emb_ce",         {"kind": "mlp",  "feats": "emb", "mode": "ce"}),        # = original Model B MLP
     *[(f"lstm{h}_emb_ce",  {"kind": "lstm", "feats": "emb", "mode": "ce", "history": h})
       for h in LSTM_HISTORIES],                                                    # = v1 LSTM-4/6/8
     ("mlp_ctx_ce",         {"kind": "mlp",  "feats": "ctx", "mode": "ce"}),
@@ -395,7 +395,10 @@ def compute_loss(model, x, y, ref, mode, n_classes):
     return loss
 
 
-def train_torch(spec, X, y, ref, train, val, n_classes, epochs):
+def train_torch(spec, X, y, ref, train, val, n_classes, epochs, history=None):
+    """Train with early stopping on val loss. If `history` is a list, one dict per epoch is
+    appended (train/val loss, val accuracy, val transition recall); this uses no randomness, so
+    it does not change the trained model."""
     mode = spec["mode"]
     # Standardise on train statistics only (flattened over time steps for the LSTM).
     feat_dim = X.shape[-1]
@@ -412,14 +415,23 @@ def train_torch(spec, X, y, ref, train, val, n_classes, epochs):
     for _epoch in range(epochs):
         model.train()
         perm = tr_idx[torch.randperm(len(tr_idx))]
+        batch_losses = []
         for b in range(0, len(perm), BATCH):
             bi = perm[b:b + BATCH]
             opt.zero_grad()
-            compute_loss(model, Xt[bi], yt[bi], rt[bi], mode, n_classes).backward()
+            loss = compute_loss(model, Xt[bi], yt[bi], rt[bi], mode, n_classes)
+            loss.backward()
             opt.step()
+            batch_losses.append((loss.item(), len(bi)))
         model.eval()
         with torch.no_grad():
             val_loss = compute_loss(model, Xt[va_idx], yt[va_idx], rt[va_idx], mode, n_classes).item()
+            if history is not None:
+                s = score(model(Xt[va_idx])[0].argmax(1).numpy(), y[val], ref[val])
+                history.append({"epoch": _epoch + 1, "val_loss": val_loss,
+                                "train_loss": sum(l * n for l, n in batch_losses) / len(perm),
+                                "val_acc": float(s["overall_acc"]),
+                                "val_trans_recall": float(s["trans_recall"])})
         if val_loss < best_loss:
             best_loss, bad = val_loss, 0
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
@@ -520,7 +532,7 @@ def write_markdown(summary: pd.DataFrame, diag: dict, seeds, out: Path):
         f"{100 * diag['raw_transitions_that_are_flicker']:.1f}%.",
         "",
         "All numbers are % (mean ± std over seeds). `trans_recall` is the 'transition accuracy' "
-        "that model_b.py reports.",
+        "that the original Model B reported.",
         "",
     ]
     for label_def in LABEL_DEFS:

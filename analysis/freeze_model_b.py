@@ -14,7 +14,6 @@ out), then writes to models/phase_lookahead_v2/:
   metrics.json  - this seed's test metrics + the 5-seed mean/std from results/model_b_v2/
 
 Verifies that a pure-Python forward pass over model.json reproduces the PyTorch predictions.
-Does not touch models/phase_lookahead/ or models/phase_lookahead_lstm/.
 
 Run:  python analysis/freeze_model_b.py      (requires results/model_b_v2/summary.csv)
 """
